@@ -101,6 +101,7 @@
   var state = loadState();
   var selectedOrigin = ORIGINS[0].id;
   var koreEditing = false;
+  var expandedTypes = {};
 
   // ---------- shared helpers ----------
 
@@ -196,13 +197,40 @@
       var c = totalForType(t.id);
       var k = state.kore[t.id] || 0;
       var diffT = c - k;
+      var isOpen = !!expandedTypes[t.id];
+
+      var breakdown = "";
+      if (isOpen) {
+        breakdown =
+          '<div class="origin-breakdown">' +
+          ORIGINS.map(function (o) {
+            var v = state.counts[o.id][t.id] || 0;
+            return '<div class="origin-line"><span class="origin-name">' + o.label + '</span><span class="origin-value">' + v + "</span></div>";
+          }).join("") +
+          "</div>";
+      }
+
       return (
-        '<div class="row">' +
+        '<div class="resumen-row-group">' +
+        '<div class="resumen-row" data-type="' + t.id + '">' +
         '<div class="title-block"><span class="name">' + t.label + '</span><span class="sub">Contado ' + c + " · Kore " + k + "</span></div>" +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
         diffBadge(diffT) +
+        '<svg class="chevron' + (isOpen ? " rotated" : "") + '" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>' +
+        "</div>" +
+        "</div>" +
+        breakdown +
         "</div>"
       );
     }).join("");
+
+    Array.prototype.forEach.call(document.querySelectorAll(".resumen-row"), function (row) {
+      row.addEventListener("click", function () {
+        var typeId = row.getAttribute("data-type");
+        expandedTypes[typeId] = !expandedTypes[typeId];
+        renderResumen();
+      });
+    });
   }
 
   function cerrarMes() {
