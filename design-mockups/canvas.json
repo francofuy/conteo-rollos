@@ -1,0 +1,27 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 393, "h": 852, "page": "page-1" },
+    { "file": "Resumen.dc.html", "x": 493, "y": 0, "w": 393, "h": 852, "page": "page-1" },
+    { "file": "Historial.dc.html", "x": 986, "y": 0, "w": 393, "h": 852, "page": "page-1" },
+    { "file": "KoreView.dc.html", "x": 1479, "y": 0, "w": 393, "h": 852, "page": "page-1" },
+    { "file": "KoreEdit.dc.html", "x": 1972, "y": 0, "w": 393, "h": 852, "page": "page-1" },
+    { "file": "SettingsClone.dc.html", "x": 0, "y": 0, "w": 393, "h": 852, "page": "page-2" },
+    { "file": "Carousel.dc.html", "x": 493, "y": 0, "w": 393, "h": 852, "page": "page-2" },
+    { "file": "Accordion.dc.html", "x": 986, "y": 0, "w": 393, "h": 852, "page": "page-2" }
+  ],
+  "annotations": [
+    { "id": "label-main", "x": 0, "y": -60, "w": 393, "text": "1 · Conteo · Citek\nGlass Apple: contenido plano, control flotante", "page": "page-1" },
+    { "id": "label-resumen", "x": 493, "y": -60, "w": 393, "text": "2 · Comparación\nContado vs Kore, diferencia por tipo", "page": "page-1" },
+    { "id": "label-historial", "x": 986, "y": -60, "w": 393, "text": "3 · Historial\nMeses anteriores + filtro glass", "page": "page-1" },
+    { "id": "label-kore-view", "x": 1479, "y": -60, "w": 393, "text": "4 · Kore · lectura\nValor de referencia del mes, botón Editar", "page": "page-1" },
+    { "id": "label-kore-edit", "x": 1972, "y": -60, "w": 393, "text": "5 · Kore · edición\nCampos editables + Guardar cambios", "page": "page-1" },
+    { "id": "label-settings", "x": 0, "y": -60, "w": 393, "text": "Descartada · Clon Settings iOS", "page": "page-2" },
+    { "id": "label-carousel", "x": 493, "y": -60, "w": 393, "text": "Descartada · Tarjetas deslizables", "page": "page-2" },
+    { "id": "label-accordion", "x": 986, "y": -60, "w": 393, "text": "Descartada · Scroll con acordeón", "page": "page-2" }
+  ],
+  "pages": [
+    { "id": "page-1", "name": "Conteo" },
+    { "id": "page-2", "name": "Otras direcciones" }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}
