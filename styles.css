@@ -56,6 +56,11 @@ body {
   flex-direction: column;
   gap: 16px;
 }
+/* flex children default to shrinking to fit the container, which silently
+   compresses content instead of letting it overflow into the scrollbar -
+   force every direct child to keep its natural size so overflow (and the
+   scroll it drives) actually happens. */
+.scroll > * { flex-shrink: 0; }
 
 .header { display: flex; flex-direction: column; gap: 2px; }
 .header.row-between { flex-direction: row; align-items: flex-start; justify-content: space-between; }
