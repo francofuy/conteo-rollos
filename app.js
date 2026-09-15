@@ -102,25 +102,41 @@
   var selectedOrigin = ORIGINS[0].id;
   var koreEditing = false;
   var expandedTypes = {};
+  var fichaSource = null; // null = mes actual en vivo; si no, es una entrada de state.history
+  var fichaReturnScreen = "resumen";
 
   // ---------- shared helpers ----------
+  // counts/kore son opcionales: por defecto leen el mes actual (state), pero
+  // la ficha los pasa explícitamente para poder mostrar un mes archivado.
 
-  function totalForType(typeId) {
+  function totalForType(typeId, counts) {
+    counts = counts || state.counts;
     var sum = 0;
-    ORIGINS.forEach(function (o) { sum += state.counts[o.id][typeId] || 0; });
+    ORIGINS.forEach(function (o) { sum += counts[o.id][typeId] || 0; });
     return sum;
   }
 
-  function totalContado() {
+  function totalContado(counts) {
+    counts = counts || state.counts;
     var sum = 0;
-    TYPES.forEach(function (t) { sum += totalForType(t.id); });
+    TYPES.forEach(function (t) { sum += totalForType(t.id, counts); });
     return sum;
   }
 
-  function totalKore() {
+  function totalKore(kore) {
+    kore = kore || state.kore;
     var sum = 0;
-    TYPES.forEach(function (t) { sum += state.kore[t.id] || 0; });
+    TYPES.forEach(function (t) { sum += kore[t.id] || 0; });
     return sum;
+  }
+
+  function monthHasData(counts, kore) {
+    var found = false;
+    ORIGINS.forEach(function (o) {
+      TYPES.forEach(function (t) { if ((counts[o.id][t.id] || 0) !== 0) found = true; });
+    });
+    TYPES.forEach(function (t) { if ((kore[t.id] || 0) !== 0) found = true; });
+    return found;
   }
 
   function diffBadge(diff) {
@@ -234,7 +250,7 @@
   }
 
   function cerrarMes() {
-    var ok = window.confirm("¿Archivar " + monthLabel(state.currentMonth) + " en el historial y reiniciar el conteo para el próximo mes?");
+    var ok = window.confirm("¿Archivar " + monthLabel(state.currentMonth) + " en el historial y arrancar " + monthLabel(nextMonthKey(state.currentMonth)) + " con el conteo y el Kore en cero?");
     if (!ok) return;
 
     state.history.unshift({
@@ -246,40 +262,83 @@
 
     state.currentMonth = nextMonthKey(state.currentMonth);
     state.counts = emptyCounts();
-    // el valor de Kore normalmente se mantiene parecido mes a mes: lo dejamos
-    // cargado como punto de partida y el usuario lo actualiza en la pestaña Kore.
+    state.kore = emptyKore();
+    state.koreUpdatedAt = null;
     saveState();
     renderAll();
   }
 
+  function reabrirMes(month) {
+    var idx = state.history.findIndex(function (h) { return h.month === month; });
+    if (idx === -1) return;
+
+    var currentTieneDatos = monthHasData(state.counts, state.kore);
+    var msg = "¿Reabrir " + monthLabel(month) + " para seguir editándolo?" +
+      (currentTieneDatos ? " " + monthLabel(state.currentMonth) + " se archiva primero para no perder lo que ya cargaste." : "");
+    var ok = window.confirm(msg);
+    if (!ok) return;
+
+    var target = state.history[idx];
+    state.history.splice(idx, 1);
+
+    if (currentTieneDatos) {
+      state.history.unshift({
+        month: state.currentMonth,
+        counts: JSON.parse(JSON.stringify(state.counts)),
+        kore: JSON.parse(JSON.stringify(state.kore)),
+        closedAt: new Date().toISOString()
+      });
+    }
+
+    state.currentMonth = target.month;
+    state.counts = JSON.parse(JSON.stringify(target.counts));
+    state.kore = JSON.parse(JSON.stringify(target.kore));
+    state.koreUpdatedAt = target.closedAt || null;
+
+    saveState();
+    fichaSource = null;
+    showScreen("resumen");
+  }
+
   // ---------- render: historial ----------
+
+  function historialOrdenado() {
+    return state.history.slice().sort(function (a, b) { return b.month.localeCompare(a.month); });
+  }
 
   function renderHistorial() {
     var el = document.getElementById("historial-list");
-    if (state.history.length === 0) {
+    var items = historialOrdenado();
+    if (items.length === 0) {
       el.outerHTML = '<div class="card list" id="historial-list"><div class="empty-state">Todavía no cerraste ningún mes.<br>Usá "Cerrar mes" en Comparación cuando termines de contar.</div></div>';
       return;
     }
-    el.innerHTML = state.history.map(function (h) {
-      var contado = 0, kore = 0;
-      TYPES.forEach(function (t) {
-        var perOrigin = 0;
-        ORIGINS.forEach(function (o) { perOrigin += (h.counts[o.id] && h.counts[o.id][t.id]) || 0; });
-        contado += perOrigin;
-        kore += h.kore[t.id] || 0;
-      });
+    el.innerHTML = items.map(function (h) {
+      var contado = totalContado(h.counts);
+      var kore = totalKore(h.kore);
       var diff = contado - kore;
       var badge = diff === 0
         ? '<div class="badge ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg><span>Cuadra</span></div>'
         : diffBadge(diff);
       return (
-        '<div class="row">' +
+        '<div class="row historial-row" data-month="' + h.month + '">' +
         '<span class="name">' + monthLabel(h.month) + "</span>" +
         '<div style="display:flex;align-items:center;gap:8px;">' + badge +
         '<svg class="chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>' +
         "</div>"
       );
     }).join("");
+
+    Array.prototype.forEach.call(el.querySelectorAll(".historial-row"), function (row) {
+      row.addEventListener("click", function () {
+        var month = row.getAttribute("data-month");
+        var entry = state.history.filter(function (h) { return h.month === month; })[0];
+        if (!entry) return;
+        fichaSource = entry;
+        fichaReturnScreen = "historial";
+        showScreen("ficha");
+      });
+    });
   }
 
   // ---------- render: kore ----------
@@ -327,7 +386,12 @@
   }
 
   function renderFicha() {
-    document.getElementById("ficha-title").textContent = monthLabel(state.currentMonth);
+    var archived = !!fichaSource;
+    var month = archived ? fichaSource.month : state.currentMonth;
+    var counts = archived ? fichaSource.counts : state.counts;
+    var kore = archived ? fichaSource.kore : state.kore;
+
+    document.getElementById("ficha-title").textContent = monthLabel(month) + (archived ? " · Archivado" : "");
 
     var totalsByOrigin = {};
     ORIGINS.forEach(function (o) { totalsByOrigin[o.id] = 0; });
@@ -335,21 +399,21 @@
 
     var bodyRows = TYPES.map(function (t) {
       var cells = ORIGINS.map(function (o) {
-        var v = state.counts[o.id][t.id] || 0;
+        var v = (counts[o.id] && counts[o.id][t.id]) || 0;
         totalsByOrigin[o.id] += v;
         return "<td>" + v + "</td>";
       }).join("");
 
-      var total = totalForType(t.id);
-      var kore = state.kore[t.id] || 0;
-      var diff = diffCell(total - kore);
+      var total = totalForType(t.id, counts);
+      var koreVal = kore[t.id] || 0;
+      var diff = diffCell(total - koreVal);
       grandContado += total;
-      grandKore += kore;
+      grandKore += koreVal;
 
       return (
         "<tr><td>" + t.label + "</td>" + cells +
         "<td><strong>" + total + "</strong></td>" +
-        "<td>" + kore + "</td>" +
+        "<td>" + koreVal + "</td>" +
         '<td class="' + diff.cls + '">' + diff.text + "</td></tr>"
       );
     }).join("");
@@ -368,6 +432,10 @@
       "<thead><tr><th>Medida</th>" + headCells + "<th>Total</th><th>Kore</th><th>Diferencia</th></tr></thead>" +
       "<tbody>" + bodyRows + "</tbody>" +
       "<tfoot>" + footRow + "</tfoot>";
+
+    var reabrirBtn = document.getElementById("btn-ficha-reabrir");
+    reabrirBtn.hidden = !archived;
+    reabrirBtn.onclick = archived ? function () { reabrirMes(month); } : null;
   }
 
   // ---------- nav / init ----------
@@ -404,8 +472,12 @@
       koreEditing = !koreEditing;
       renderKore();
     });
-    document.getElementById("btn-ver-ficha").addEventListener("click", function () { showScreen("ficha"); });
-    document.getElementById("btn-ficha-back").addEventListener("click", function () { showScreen("resumen"); });
+    document.getElementById("btn-ver-ficha").addEventListener("click", function () {
+      fichaSource = null;
+      fichaReturnScreen = "resumen";
+      showScreen("ficha");
+    });
+    document.getElementById("btn-ficha-back").addEventListener("click", function () { showScreen(fichaReturnScreen); });
     document.getElementById("btn-ficha-print").addEventListener("click", function () {
       // iOS bloquea el diálogo de impresión real dentro de una PWA instalada
       // (modo standalone) - ahí hay que imprimir desde Safari en su lugar.
