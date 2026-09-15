@@ -1,9 +1,10 @@
-var CACHE_NAME = "conteo-rollos-v6";
+var CACHE_NAME = "conteo-rollos-v7";
 var ASSETS = [
   "./",
   "index.html",
   "styles.css",
   "app.js",
+  "vendor/jspdf.umd.min.js",
   "manifest.webmanifest",
   "icons/icon-180.png",
   "icons/icon-192.png",

@@ -385,46 +385,66 @@
     return { text: "+" + diff + " (sobra)", cls: "diff-over" };
   }
 
+  // Junta las sumas una sola vez y las deja en una forma neutra (no HTML, no
+  // PDF) para que renderFicha() y generarFichaPDF() dibujen lo mismo sin
+  // duplicar la aritmética.
+  function computeFichaData(month, counts, kore, archived) {
+    var totalsByOrigin = {};
+    ORIGINS.forEach(function (o) { totalsByOrigin[o.id] = 0; });
+    var grandContado = 0, grandKore = 0;
+
+    var rows = TYPES.map(function (t) {
+      var perOrigin = ORIGINS.map(function (o) {
+        var v = (counts[o.id] && counts[o.id][t.id]) || 0;
+        totalsByOrigin[o.id] += v;
+        return v;
+      });
+      var total = totalForType(t.id, counts);
+      var koreVal = kore[t.id] || 0;
+      grandContado += total;
+      grandKore += koreVal;
+      return { label: t.label, perOrigin: perOrigin, total: total, kore: koreVal, diff: diffCell(total - koreVal) };
+    });
+
+    return {
+      month: month,
+      archived: archived,
+      rows: rows,
+      totalsByOrigin: ORIGINS.map(function (o) { return totalsByOrigin[o.id]; }),
+      grandContado: grandContado,
+      grandKore: grandKore,
+      footDiff: diffCell(grandContado - grandKore)
+    };
+  }
+
+  var lastFichaData = null;
+
   function renderFicha() {
     var archived = !!fichaSource;
     var month = archived ? fichaSource.month : state.currentMonth;
     var counts = archived ? fichaSource.counts : state.counts;
     var kore = archived ? fichaSource.kore : state.kore;
+    var fd = computeFichaData(month, counts, kore, archived);
+    lastFichaData = fd;
 
     document.getElementById("ficha-title").textContent = monthLabel(month) + (archived ? " · Archivado" : "");
 
-    var totalsByOrigin = {};
-    ORIGINS.forEach(function (o) { totalsByOrigin[o.id] = 0; });
-    var grandContado = 0, grandKore = 0;
-
-    var bodyRows = TYPES.map(function (t) {
-      var cells = ORIGINS.map(function (o) {
-        var v = (counts[o.id] && counts[o.id][t.id]) || 0;
-        totalsByOrigin[o.id] += v;
-        return "<td>" + v + "</td>";
-      }).join("");
-
-      var total = totalForType(t.id, counts);
-      var koreVal = kore[t.id] || 0;
-      var diff = diffCell(total - koreVal);
-      grandContado += total;
-      grandKore += koreVal;
-
+    var bodyRows = fd.rows.map(function (r) {
+      var cells = r.perOrigin.map(function (v) { return "<td>" + v + "</td>"; }).join("");
       return (
-        "<tr><td>" + t.label + "</td>" + cells +
-        "<td><strong>" + total + "</strong></td>" +
-        "<td>" + koreVal + "</td>" +
-        '<td class="' + diff.cls + '">' + diff.text + "</td></tr>"
+        "<tr><td>" + r.label + "</td>" + cells +
+        "<td><strong>" + r.total + "</strong></td>" +
+        "<td>" + r.kore + "</td>" +
+        '<td class="' + r.diff.cls + '">' + r.diff.text + "</td></tr>"
       );
     }).join("");
 
-    var footDiff = diffCell(grandContado - grandKore);
-    var footCells = ORIGINS.map(function (o) { return "<td>" + totalsByOrigin[o.id] + "</td>"; }).join("");
+    var footCells = fd.totalsByOrigin.map(function (v) { return "<td>" + v + "</td>"; }).join("");
     var footRow =
       "<tr><td>Total</td>" + footCells +
-      "<td>" + grandContado + "</td>" +
-      "<td>" + grandKore + "</td>" +
-      '<td class="' + footDiff.cls + '">' + footDiff.text + "</td></tr>";
+      "<td>" + fd.grandContado + "</td>" +
+      "<td>" + fd.grandKore + "</td>" +
+      '<td class="' + fd.footDiff.cls + '">' + fd.footDiff.text + "</td></tr>";
 
     var headCells = ORIGINS.map(function (o) { return "<th>" + o.label + "</th>"; }).join("");
 
@@ -436,6 +456,102 @@
     var reabrirBtn = document.getElementById("btn-ficha-reabrir");
     reabrirBtn.hidden = !archived;
     reabrirBtn.onclick = archived ? function () { reabrirMes(month); } : null;
+  }
+
+  // Dibuja la misma ficha como PDF (A4, mm) usando jsPDF, cargado como
+  // vendor/jspdf.umd.min.js. Devuelve un Blob, o null si la librería no
+  // llegó a cargar (sin conexión la primera vez, por ejemplo).
+  function generarFichaPDF() {
+    var fd = lastFichaData;
+    var JsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if (!fd || !JsPDFCtor) return null;
+
+    var doc = new JsPDFCtor({ unit: "mm", format: "a4" });
+    var marginX = 12;
+    var colWidths = [34, 20, 24, 22, 22, 16, 14, 22];
+    var colX = [];
+    (function () { var x = marginX; colWidths.forEach(function (w) { colX.push(x); x += w; }); })();
+
+    var y = 16;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("FICHA", marginX, y);
+    y += 8;
+    doc.setFontSize(17);
+    doc.text(monthLabel(fd.month) + (fd.archived ? " (archivado)" : ""), marginX, y);
+    y += 10;
+
+    function drawRow(vals, bold) {
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      vals.forEach(function (v, i) {
+        if (i === 0) {
+          doc.text(String(v), colX[i], y);
+        } else {
+          doc.text(String(v), colX[i] + colWidths[i] - 2, y, { align: "right" });
+        }
+      });
+    }
+
+    var headers = ["Medida"].concat(ORIGINS.map(function (o) { return o.label; })).concat(["Total", "Kore", "Diferencia"]);
+    doc.setFontSize(8);
+    drawRow(headers, true);
+    y += 2;
+    doc.setDrawColor(160);
+    doc.line(marginX, y, marginX + colWidths.reduce(function (a, b) { return a + b; }, 0), y);
+
+    doc.setFontSize(8.5);
+    fd.rows.forEach(function (r) {
+      y += 6.5;
+      var vals = [r.label].concat(r.perOrigin).concat([r.total, r.kore, r.diff.text]);
+      drawRow(vals, false);
+    });
+
+    y += 3;
+    doc.setDrawColor(160);
+    doc.line(marginX, y, marginX + colWidths.reduce(function (a, b) { return a + b; }, 0), y);
+    y += 5.5;
+    var footVals = ["Total"].concat(fd.totalsByOrigin).concat([fd.grandContado, fd.grandKore, fd.footDiff.text]);
+    drawRow(footVals, true);
+
+    return doc.output("blob");
+  }
+
+  function fichaFileName(month) {
+    return "ficha-rollos-" + month + ".pdf";
+  }
+
+  async function imprimirFicha() {
+    var fd = lastFichaData;
+    if (!fd) return;
+
+    // Camino principal: generar el PDF y pasarlo a la hoja de compartir de
+    // iOS (funciona instalada como PWA, a diferencia de window.print()) -
+    // desde ahí el usuario elige Imprimir, AirDrop, guardar en Archivos, etc.
+    if (navigator.canShare && window.File) {
+      try {
+        var blob = generarFichaPDF();
+        if (blob) {
+          var file = new File([blob], fichaFileName(fd.month), { type: "application/pdf" });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: "Ficha " + monthLabel(fd.month) });
+            return;
+          }
+        }
+      } catch (err) {
+        if (err && err.name === "AbortError") return; // el usuario cerró la hoja de compartir
+        // si algo falla de verdad, seguimos a los caminos de respaldo de abajo
+      }
+    }
+
+    // Respaldo: sin soporte para compartir archivos (desktop, navegadores
+    // viejos). En una PWA instalada en iOS, print() real no funciona.
+    var isStandalone = window.navigator.standalone === true ||
+      window.matchMedia("(display-mode: standalone)").matches;
+    if (isStandalone) {
+      alert("Para imprimir, abrí este link en Safari (no desde el ícono agregado a la pantalla de inicio) y volvé a tocar Imprimir ahí.\n\nEs una limitación de iOS para apps instaladas en la pantalla de inicio, no de esta app.");
+      return;
+    }
+    window.print();
   }
 
   // ---------- nav / init ----------
@@ -478,17 +594,7 @@
       showScreen("ficha");
     });
     document.getElementById("btn-ficha-back").addEventListener("click", function () { showScreen(fichaReturnScreen); });
-    document.getElementById("btn-ficha-print").addEventListener("click", function () {
-      // iOS bloquea el diálogo de impresión real dentro de una PWA instalada
-      // (modo standalone) - ahí hay que imprimir desde Safari en su lugar.
-      var isStandalone = window.navigator.standalone === true ||
-        window.matchMedia("(display-mode: standalone)").matches;
-      if (isStandalone) {
-        alert("Para imprimir, abrí este link en Safari (no desde el ícono agregado a la pantalla de inicio) y volvé a tocar Imprimir ahí.\n\nEs una limitación de iOS para apps instaladas en la pantalla de inicio, no de esta app.");
-        return;
-      }
-      window.print();
-    });
+    document.getElementById("btn-ficha-print").addEventListener("click", imprimirFicha);
 
     showScreen("conteo");
 
