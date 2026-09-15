@@ -273,6 +273,59 @@ input[type=number] { -moz-appearance: textfield; }
   font-family: inherit;
 }
 
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.10);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 0.5px solid rgba(255,255,255,0.18);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn svg { width: 18px; height: 18px; }
+
+/* ficha (printable table) */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.ficha-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 560px;
+  font-size: 12px;
+}
+.ficha-table th, .ficha-table td {
+  padding: 8px 7px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 0.5px solid var(--border);
+}
+.ficha-table th:first-child, .ficha-table td:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--bg);
+}
+.ficha-table thead th {
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+}
+.ficha-table tbody td { font-variant-numeric: tabular-nums; color: var(--text); }
+.ficha-table tfoot td {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+.ficha-table .diff-short { color: var(--danger); }
+.ficha-table .diff-over { color: var(--accent); }
+.ficha-table .diff-ok { color: var(--success); }
+
 .link-action {
   background: none;
   border: none;
@@ -322,3 +375,27 @@ input[type=number] { -moz-appearance: textfield; }
 .tab svg { width: 24px; height: 24px; }
 .tab span { font-size: 10px; font-weight: 500; }
 .tab.active { color: var(--accent); }
+
+/* printing the ficha: only the table survives, in plain black on white */
+@media print {
+  @page { margin: 12mm; }
+  html, body { height: auto; background: #FFFFFF; }
+  #app { position: static; height: auto; overflow: visible; }
+  .tabbar, .no-print { display: none !important; }
+  .screen { display: none !important; background: none !important; }
+  .screen.active { display: block !important; position: static !important; }
+  #screen-ficha .scroll {
+    height: auto;
+    overflow: visible;
+    padding: 0;
+    display: block;
+  }
+  #screen-ficha .header { margin-bottom: 12px; }
+  #screen-ficha .eyebrow, #screen-ficha h1, #screen-ficha .hint { color: #000000 !important; }
+  #screen-ficha .icon-btn { display: none !important; }
+  .table-scroll { overflow: visible; }
+  .ficha-table { min-width: 0; width: 100%; font-size: 11px; }
+  .ficha-table th, .ficha-table td { border-color: #999999; color: #000000 !important; }
+  .ficha-table th:first-child, .ficha-table td:first-child { background: none !important; position: static; }
+  .ficha-table .diff-short, .ficha-table .diff-over, .ficha-table .diff-ok { color: #000000 !important; }
+}

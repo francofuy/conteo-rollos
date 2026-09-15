@@ -38,7 +38,28 @@
       </div>
       <div class="hero-card" id="resumen-hero"></div>
       <div class="card list" id="resumen-list"></div>
+      <button class="link-action" id="btn-ver-ficha">Ver ficha imprimible</button>
       <button class="link-action" id="btn-cerrar-mes">Cerrar mes y archivar</button>
+    </div>
+  </section>
+
+  <!-- FICHA (imprimible) -->
+  <section class="screen" id="screen-ficha">
+    <div class="scroll">
+      <div class="header row-between">
+        <button class="icon-btn" id="btn-ficha-back" aria-label="Volver">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <button class="pill-btn no-print" id="btn-ficha-print">Imprimir</button>
+      </div>
+      <div class="header" style="margin-top:4px;">
+        <div class="eyebrow">Ficha</div>
+        <h1 id="ficha-title">&nbsp;</h1>
+      </div>
+      <div class="table-scroll">
+        <table class="ficha-table" id="ficha-table"></table>
+      </div>
+      <div class="hint no-print">Datos generados por Conteo Rollos.</div>
     </div>
   </section>
 

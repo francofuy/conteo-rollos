@@ -318,19 +318,76 @@
       : "Todavía no cargaste el valor de Kore de este mes.";
   }
 
+  // ---------- render: ficha (printable table) ----------
+
+  function diffCell(diff) {
+    if (diff === 0) return { text: "0", cls: "diff-ok" };
+    if (diff < 0) return { text: diff + " (falta)", cls: "diff-short" };
+    return { text: "+" + diff + " (sobra)", cls: "diff-over" };
+  }
+
+  function renderFicha() {
+    document.getElementById("ficha-title").textContent = monthLabel(state.currentMonth);
+
+    var totalsByOrigin = {};
+    ORIGINS.forEach(function (o) { totalsByOrigin[o.id] = 0; });
+    var grandContado = 0, grandKore = 0;
+
+    var bodyRows = TYPES.map(function (t) {
+      var cells = ORIGINS.map(function (o) {
+        var v = state.counts[o.id][t.id] || 0;
+        totalsByOrigin[o.id] += v;
+        return "<td>" + v + "</td>";
+      }).join("");
+
+      var total = totalForType(t.id);
+      var kore = state.kore[t.id] || 0;
+      var diff = diffCell(total - kore);
+      grandContado += total;
+      grandKore += kore;
+
+      return (
+        "<tr><td>" + t.label + "</td>" + cells +
+        "<td><strong>" + total + "</strong></td>" +
+        "<td>" + kore + "</td>" +
+        '<td class="' + diff.cls + '">' + diff.text + "</td></tr>"
+      );
+    }).join("");
+
+    var footDiff = diffCell(grandContado - grandKore);
+    var footCells = ORIGINS.map(function (o) { return "<td>" + totalsByOrigin[o.id] + "</td>"; }).join("");
+    var footRow =
+      "<tr><td>Total</td>" + footCells +
+      "<td>" + grandContado + "</td>" +
+      "<td>" + grandKore + "</td>" +
+      '<td class="' + footDiff.cls + '">' + footDiff.text + "</td></tr>";
+
+    var headCells = ORIGINS.map(function (o) { return "<th>" + o.label + "</th>"; }).join("");
+
+    document.getElementById("ficha-table").innerHTML =
+      "<thead><tr><th>Medida</th>" + headCells + "<th>Total</th><th>Kore</th><th>Diferencia</th></tr></thead>" +
+      "<tbody>" + bodyRows + "</tbody>" +
+      "<tfoot>" + footRow + "</tfoot>";
+  }
+
   // ---------- nav / init ----------
 
   function showScreen(name) {
     Array.prototype.forEach.call(document.querySelectorAll(".screen"), function (s) {
       s.classList.toggle("active", s.id === "screen-" + name);
     });
-    Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
-      t.classList.toggle("active", t.getAttribute("data-screen") === name);
-    });
+    // "ficha" has no tab of its own (opened from Comparación); leave the
+    // tab bar's active state as-is so Comparación still reads active under it.
+    if (name !== "ficha") {
+      Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
+        t.classList.toggle("active", t.getAttribute("data-screen") === name);
+      });
+    }
     if (name === "conteo") renderConteo();
     else if (name === "resumen") renderResumen();
     else if (name === "historial") renderHistorial();
     else if (name === "kore") renderKore();
+    else if (name === "ficha") renderFicha();
   }
 
   function renderAll() {
@@ -347,6 +404,9 @@
       koreEditing = !koreEditing;
       renderKore();
     });
+    document.getElementById("btn-ver-ficha").addEventListener("click", function () { showScreen("ficha"); });
+    document.getElementById("btn-ficha-back").addEventListener("click", function () { showScreen("resumen"); });
+    document.getElementById("btn-ficha-print").addEventListener("click", function () { window.print(); });
 
     showScreen("conteo");
 
