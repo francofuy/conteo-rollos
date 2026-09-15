@@ -1,4 +1,4 @@
-var CACHE_NAME = "conteo-rollos-v4";
+var CACHE_NAME = "conteo-rollos-v5";
 var ASSETS = [
   "./",
   "index.html",

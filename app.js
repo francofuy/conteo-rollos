@@ -406,7 +406,17 @@
     });
     document.getElementById("btn-ver-ficha").addEventListener("click", function () { showScreen("ficha"); });
     document.getElementById("btn-ficha-back").addEventListener("click", function () { showScreen("resumen"); });
-    document.getElementById("btn-ficha-print").addEventListener("click", function () { window.print(); });
+    document.getElementById("btn-ficha-print").addEventListener("click", function () {
+      // iOS bloquea el diálogo de impresión real dentro de una PWA instalada
+      // (modo standalone) - ahí hay que imprimir desde Safari en su lugar.
+      var isStandalone = window.navigator.standalone === true ||
+        window.matchMedia("(display-mode: standalone)").matches;
+      if (isStandalone) {
+        alert("Para imprimir, abrí este link en Safari (no desde el ícono agregado a la pantalla de inicio) y volvé a tocar Imprimir ahí.\n\nEs una limitación de iOS para apps instaladas en la pantalla de inicio, no de esta app.");
+        return;
+      }
+      window.print();
+    });
 
     showScreen("conteo");
 
